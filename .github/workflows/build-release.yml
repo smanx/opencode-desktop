@@ -1,5 +1,8 @@
 name: Build & Release
 
+# Builds installers for Windows/macOS/Linux and creates a draft GitHub
+# release. Trigger manually or by pushing a tag (v*).
+
 on:
   workflow_dispatch:
   push:

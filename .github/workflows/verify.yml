@@ -1,5 +1,9 @@
 name: Verify App
 
+# End-to-end verification of OpenCode Desktop on Windows/macOS/Linux:
+# installs opencode-ai, smoke-tests the opencode server, builds and installs
+# the app, launches it and confirms it auto-starts the server.
+
 on:
   workflow_dispatch:
   push:
