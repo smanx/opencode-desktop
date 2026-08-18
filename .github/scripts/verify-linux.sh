@@ -79,7 +79,7 @@ while [ "$SECONDS" -lt "$end" ]; do
     echo "App process exited early (see app.log)."
     break
   fi
-  body="$(curl -s --max-time 5 "${CURL_AUTH[@]}" "http://127.0.0.1:$PORT/" || true)"
+  body="$(curl -s --max-time 5 ${CURL_AUTH[@]+"${CURL_AUTH[@]}"} "http://127.0.0.1:$PORT/" || true)"
   if [ -n "$body" ]; then
     low="$(printf '%s' "$body" | tr '[:upper:]' '[:lower:]')"
     if printf '%s' "$low" | grep -qE 'opencode|healthy'; then
