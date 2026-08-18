@@ -1,0 +1,119 @@
+:root {
+  color-scheme: dark;
+  font-family: "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  min-height: 100vh;
+  background: radial-gradient(1200px 600px at 50% -10%, #1d1a24 0%, #100d14 55%, #0a080c 100%);
+  color: #ece9f2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.app {
+  width: 100%;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.card {
+  width: 380px;
+  max-width: 100%;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 40px 32px;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
+}
+
+.logo {
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 18px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #8b5cf6 0%, #d946ef 60%, #ec4899 100%);
+  color: #fff;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 64px;
+  letter-spacing: 1px;
+  user-select: none;
+}
+
+h1 {
+  font-size: 22px;
+  font-weight: 600;
+  margin-bottom: 20px;
+}
+
+.status {
+  font-size: 14px;
+  color: #a9a2b8;
+  min-height: 22px;
+  margin-bottom: 18px;
+}
+
+.spinner {
+  width: 36px;
+  height: 36px;
+  margin: 0 auto;
+  border: 3px solid rgba(255, 255, 255, 0.15);
+  border-top-color: #8b5cf6;
+  border-radius: 50%;
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.url {
+  font-size: 13px;
+  color: #b9a4ff;
+  word-break: break-all;
+  margin-top: 8px;
+}
+
+.error {
+  margin-top: 6px;
+}
+
+.error p {
+  font-size: 13px;
+  color: #ff8d8d;
+  margin-bottom: 16px;
+}
+
+.btn {
+  appearance: none;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.08);
+  color: #ece9f2;
+  font-size: 14px;
+  padding: 9px 24px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.btn:hover {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+[hidden] {
+  display: none !important;
+}

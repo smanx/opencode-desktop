@@ -1,0 +1,182 @@
+name: Verify App
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+concurrency:
+  group: verify-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: "22"
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Verify (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-22.04]
+
+    outputs:
+      verdict: ${{ steps.verify.outputs.verdict }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+
+      - name: Install Linux system dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf \
+            dbus dbus-x11 xvfb imagemagick
+
+      - name: Install frontend dependencies
+        run: npm install
+
+      - name: Add npm global bin to PATH (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $prefix = npm prefix -g
+          Write-Host "npm global prefix: $prefix"
+          Add-Content -Path $env:GITHUB_PATH -Value $prefix -Encoding utf8
+
+      # (a) package & install the OpenCode tool
+      - name: Package & install OpenCode tool
+        run: npm install -g opencode-ai
+
+      - name: Verify opencode CLI is resolvable
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            cmd //c "where opencode" >/dev/null 2>&1 || { echo "::error::opencode CLI was not installed (not found on PATH)."; exit 1; }
+            echo "opencode CLI: $(cmd //c 'where opencode')"
+          else
+            command -v opencode >/dev/null 2>&1 || { echo "::error::opencode CLI was not installed (not found on PATH)."; exit 1; }
+            echo "opencode CLI: $(command -v opencode)"
+          fi
+
+      # Boot opencode once: verifies the tool itself works in this CI environment
+      # and pre-warms its profile, so the first boot (slow cold start) happens
+      # here instead of under the app-under-test.
+      - name: Smoke test opencode server
+        shell: pwsh
+        run: pwsh .github/scripts/smoke-opencode-web.ps1
+
+      # (b) build + install the app package
+      - name: Build installer
+        shell: bash
+        run: |
+          case "$RUNNER_OS" in
+            Windows) bundle=nsis ;;
+            macOS) bundle=dmg ;;
+            Linux) bundle=deb ;;
+          esac
+          npm run tauri build -- --bundles "$bundle"
+
+      - name: Install app (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $setup = Get-ChildItem -Path 'src-tauri/target/release/bundle/nsis' -Filter '*-setup.exe' | Select-Object -First 1
+          if (-not $setup) { throw 'NSIS installer not found under src-tauri/target/release/bundle/nsis' }
+          Write-Host "Installing $($setup.FullName) silently"
+          Start-Process -FilePath $setup.FullName -ArgumentList '/S' -Wait
+          Start-Sleep -Seconds 2
+          $installed = @(
+            (Join-Path $env:LOCALAPPDATA 'opencode-desktop\opencode-desktop.exe'),
+            (Join-Path ${env:ProgramFiles} 'opencode-desktop\opencode-desktop.exe')
+          ) | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
+          if (-not $installed) { throw 'opencode-desktop.exe not found after silent install' }
+          Write-Host "Installed: $installed"
+
+      - name: Install app (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          DMG="$(ls src-tauri/target/release/bundle/dmg/*.dmg | head -1)"
+          echo "Mounting $DMG"
+          hdiutil attach "$DMG" -nobrowse -quiet
+          VOL="$(ls -dt /Volumes/* | head -1)"
+          echo "Volume: $VOL"
+          APP="$(ls -d "$VOL"/*.app 2>/dev/null | head -1 || true)"
+          if [ -z "$APP" ]; then
+            echo "::error::No .app bundle found on $VOL"
+            exit 1
+          fi
+          echo "Copying $APP to /Applications"
+          cp -R "$APP" /Applications/
+          hdiutil detach "$VOL" -quiet
+          test -x /Applications/opencode-desktop.app/Contents/MacOS/opencode-desktop && echo "App installed: /Applications/opencode-desktop.app"
+
+      - name: Install app (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          DEB="$(ls src-tauri/target/release/bundle/deb/*.deb | head -1)"
+          echo "Installing $DEB"
+          sudo dpkg -i "$DEB"
+          command -v opencode-desktop || ls -l /usr/bin/opencode-desktop
+
+      # (c) launch the app, (d) verify the main UI, (e) keep a screenshot,
+      # (f) produce a PASS/FAIL verdict
+      - name: Launch app and verify main UI
+        id: verify
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            pwsh .github/scripts/verify-windows.ps1
+          elif [ "$RUNNER_OS" = "macOS" ]; then
+            bash .github/scripts/verify-macos.sh
+          else
+            dbus-run-session -- bash .github/scripts/verify-linux.sh
+          fi
+
+      - name: Upload screenshots & report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: verify-${{ matrix.os }}
+          path: |
+            screenshot-*.png
+            report.txt
+          if-no-files-found: warn
+
+  summary:
+    name: Verification summary
+    needs: verify
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Print summary
+        shell: bash
+        run: |
+          echo "## OpenCode Desktop verification finished" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Overall result: **${{ needs.verify.result }}**" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "<details><summary>Per-platform detail</summary>" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo '```json' >> "$GITHUB_STEP_SUMMARY"
+          echo '${{ toJSON(needs.verify.results) }}' >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          echo "</details>" >> "$GITHUB_STEP_SUMMARY"

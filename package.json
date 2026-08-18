@@ -1,0 +1,13 @@
+{
+  "name": "opencode-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "OpenCode web launcher desktop app",
+  "scripts": {
+    "tauri": "tauri"
+  },
+  "devDependencies": {
+    "@tauri-apps/api": "^2",
+    "@tauri-apps/cli": "^2"
+  }
+}

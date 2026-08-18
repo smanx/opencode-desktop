@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>OpenCode Desktop</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="app">
+      <div class="card">
+        <div class="logo">oc</div>
+        <h1>OpenCode Desktop</h1>
+        <p id="status" class="status">正在检测 opencode 服务…</p>
+        <div id="spinner" class="spinner" aria-label="loading"></div>
+        <p id="url" class="url" hidden></p>
+        <div id="error" class="error" hidden>
+          <p id="error-text"></p>
+          <button id="retry" class="btn">重试</button>
+        </div>
+      </div>
+    </main>
+    <script src="main.js"></script>
+  </body>
+</html>
